@@ -1,0 +1,8 @@
+# Proxies same-origin "/api/cms" requests to the CMS Provider Data Catalog API.
+# Because Netlify fetches the data server-side, the browser never makes a cross-origin
+# request, so there is no CORS problem. The original query string is forwarded automatically.
+[[redirects]]
+  from = "/api/cms"
+  to = "https://data.cms.gov/provider-data/api/1/datastore/query/4pq5-n9py/0"
+  status = 200
+  force = true

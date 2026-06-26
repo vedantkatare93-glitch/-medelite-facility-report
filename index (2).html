@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Facility Assessment Snapshot — INFINITE | Managed by MEDELITE</title>
+
+<!-- jsPDF + autotable: PDF generated entirely in the browser, no server needed -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+
+<style>
+  :root {
+    --ink:#1f2430; --muted:#6b7280; --line:#d9dce3; --brand-a:#e0218a; --brand-b:#6b3fa0;
+    --accent:#2b6cb0; --bg:#f4f5f8; --card:#fff; --highlight:#fff8b0;
+    --good:#2f855a; --mid:#b7791f; --bad:#c53030;
+  }
+  * { box-sizing:border-box; }
+  body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+         margin:0; background:var(--bg); color:var(--ink); line-height:1.45; }
+  .wrap { max-width:920px; margin:0 auto; padding:24px 16px 64px; }
+
+  .banner { background:var(--card); border:1px solid var(--line); border-radius:14px;
+            padding:22px 24px; text-align:center; box-shadow:0 1px 3px rgba(0,0,0,.05); }
+  .brandline { font-weight:800; font-size:28px; letter-spacing:.5px;
+               background:linear-gradient(90deg,var(--brand-a),var(--brand-b));
+               -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .brandsub { font-size:12px; color:var(--muted); margin-top:2px; letter-spacing:2px; text-transform:uppercase; }
+  .doctitle { margin-top:14px; font-size:18px; font-weight:700; letter-spacing:1px; }
+  .docstate { font-size:16px; font-weight:700; color:var(--accent); }
+
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px;
+          padding:20px 22px; margin-top:18px; box-shadow:0 1px 3px rgba(0,0,0,.05); }
+  h2 { font-size:14px; text-transform:uppercase; letter-spacing:1px; color:var(--muted); margin:0 0 14px; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; }
+  label { display:block; font-size:13px; font-weight:600; margin-bottom:5px; }
+  .lbl-muted { color:var(--muted); font-weight:400; }
+  input, select { width:100%; padding:10px 12px; font-size:14px; border:1px solid var(--line);
+                  border-radius:9px; background:#fff; color:var(--ink); }
+  input:focus, select:focus { outline:2px solid var(--accent); border-color:var(--accent); }
+  .field { flex:1 1 220px; margin-bottom:12px; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:0 16px; }
+  @media (max-width:620px){ .grid2 { grid-template-columns:1fr; } }
+
+  button { cursor:pointer; border:none; border-radius:10px; font-weight:700; font-size:14px; padding:11px 18px; color:#fff; }
+  button:disabled { opacity:.6; cursor:default; }
+  .btn-fetch { background:var(--accent); }
+  .btn-fetch:hover:not(:disabled){ filter:brightness(1.07); }
+  .exports { display:flex; gap:12px; flex-wrap:wrap; }
+  .btn-pdf { background:linear-gradient(90deg,var(--brand-a),var(--brand-b)); flex:1 1 220px; padding:14px; font-size:16px; }
+  .btn-word { background:var(--accent); flex:1 1 220px; padding:14px; font-size:16px; }
+  .btn-pdf:hover,.btn-word:hover { filter:brightness(1.07); }
+
+  .status { font-size:13px; margin-top:10px; min-height:18px; }
+  .status.ok { color:var(--good); } .status.err { color:var(--bad); } .status.load { color:var(--muted); }
+
+  table.preview { width:100%; border-collapse:collapse; margin-top:4px; font-size:14px; }
+  table.preview td { border:1px solid var(--line); padding:9px 11px; vertical-align:top; }
+  table.preview td.k { font-weight:600; width:48%; background:#fafafa; }
+  tr.hl td { background:var(--highlight); }
+  .src a { color:var(--accent); font-size:13px; word-break:break-all; }
+  .hint { font-size:12px; color:var(--muted); margin-top:6px; }
+
+  /* Rating band */
+  .ratings { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+  @media (max-width:620px){ .ratings { grid-template-columns:repeat(2,1fr); } }
+  .rcard { border:1px solid var(--line); border-radius:12px; padding:12px; text-align:center; }
+  .rcard .rl { font-size:11px; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); min-height:26px; }
+  .pips { display:flex; gap:4px; justify-content:center; margin:8px 0 6px; }
+  .pip { width:14px; height:14px; border-radius:3px; background:#e3e6ec; }
+  .rnum { font-size:20px; font-weight:800; }
+  .hidden { display:none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- BRANDING BANNER — "INFINITE" hardcoded; never replaced by the facility name. -->
+  <div class="banner">
+    <div class="brandline">INFINITE</div>
+    <div class="brandsub">Managed by MEDELITE</div>
+    <div class="doctitle">FACILITY ASSESSMENT SNAPSHOT</div>
+    <div class="docstate" id="bannerState">&mdash;</div>
+  </div>
+
+  <!-- 1 · LOOKUP -->
+  <div class="card">
+    <h2>1 · Facility Lookup</h2>
+    <div class="row">
+      <div class="field" style="flex:2 1 260px;">
+        <label for="ccn">CCN (CMS Certification Number)</label>
+        <input id="ccn" type="text" placeholder="e.g. 015010 or 686123" autocomplete="off" />
+      </div>
+      <div class="field" style="flex:0 0 auto;">
+        <button class="btn-fetch" id="fetchBtn" type="button">Fetch CMS Data</button>
+      </div>
+    </div>
+    <div class="status" id="status"></div>
+    <div class="hint">Enter any CCN and click fetch. Public fields (name, address, star ratings, certified beds, census, compliance) fill in automatically.</div>
+  </div>
+
+  <!-- RATING BAND (bonus) -->
+  <div class="card hidden" id="ratingsCard">
+    <h2>CMS Five-Star Ratings</h2>
+    <div class="ratings" id="ratingsBand"></div>
+  </div>
+
+  <!-- 2 · DETAILS -->
+  <div class="card">
+    <h2>2 · Report Details</h2>
+    <div class="grid2">
+      <div class="field">
+        <label for="nameOverride">Name of Facility <span class="lbl-muted">(override — optional)</span></label>
+        <input id="nameOverride" type="text" placeholder="Leave blank to use the official CMS name" />
+      </div>
+      <div class="field">
+        <label for="emr">EMR <span class="lbl-muted">(manual)</span></label>
+        <input id="emr" type="text" placeholder="e.g. PCC, MatrixCare" />
+      </div>
+      <div class="field">
+        <label for="census">Current Census <span class="lbl-muted">(auto from CMS · editable)</span></label>
+        <input id="census" type="number" placeholder="Auto-filled from avg. daily residents" />
+      </div>
+      <div class="field">
+        <label for="ptype">Type of Patient <span class="lbl-muted">(manual)</span></label>
+        <input id="ptype" type="text" placeholder="e.g. Long-term & Short-term" />
+      </div>
+      <div class="field">
+        <label for="prevCov">Previous Coverage from Medelite <span class="lbl-muted">(manual)</span></label>
+        <select id="prevCov"><option value="">—</option><option value="Yes">Yes</option><option value="No">No</option></select>
+      </div>
+      <div class="field">
+        <label for="prevPerf">Previous Provider Performance <span class="lbl-muted">(manual)</span></label>
+        <input id="prevPerf" type="text" placeholder="e.g. About 30 patients/day" />
+      </div>
+      <div class="field">
+        <label for="medCov">Medical Coverage <span class="lbl-muted">(manual)</span></label>
+        <input id="medCov" type="text" placeholder="e.g. Optometry, PCP, Podiatry" />
+      </div>
+    </div>
+  </div>
+
+  <!-- 3 · PREVIEW -->
+  <div class="card">
+    <h2>3 · Live Preview</h2>
+    <table class="preview"><tbody id="previewBody"></tbody></table>
+    <div class="src" id="sourceLink"></div>
+  </div>
+
+  <!-- COMPLIANCE & ANALYTICS (bonus, conditional) -->
+  <div class="card hidden" id="analyticsCard">
+    <h2>Compliance &amp; Analytics <span class="lbl-muted" style="text-transform:none;letter-spacing:0;">(from CMS)</span></h2>
+    <table class="preview"><tbody id="analyticsBody"></tbody></table>
+  </div>
+
+  <!-- EXPORT -->
+  <div class="card">
+    <div class="exports">
+      <button class="btn-pdf" id="pdfBtn" type="button">⬇ Download PDF</button>
+      <button class="btn-word" id="wordBtn" type="button">⬇ Download Word</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const DATASET_ID = "4pq5-n9py";
+  const API_BASE = "https://data.cms.gov/provider-data/api/1/datastore/query/" + DATASET_ID + "/0";
+  let cmsData = null;
+  const $ = (id) => document.getElementById(id);
+
+  function careCompareURL(ccn){ return "https://www.medicare.gov/care-compare/details/nursing-home/" + encodeURIComponent(ccn); }
+
+  // Read a field, returning a fallback when empty/missing.
+  function val(obj,key,fb){ if(!obj) return fb||""; const v=obj[key];
+    return (v===undefined||v===null||String(v).trim()===""||String(v).trim()==="N/A")?(fb||""):String(v).trim(); }
+
+  // Try several candidate keys (machine names can vary slightly between refreshes).
+  function pick(obj,keys,fb){ for(const k of keys){ const v=val(obj,k,""); if(v!=="") return v; } return fb||""; }
+
+  function ratingClass(r){ const n=parseInt(r,10);
+    if(isNaN(n)) return ""; if(n<=2) return "bad"; if(n===3) return "mid"; return "good"; }
+  function ratingRGB(r){ const n=parseInt(r,10);
+    if(isNaN(n)) return [180,184,193]; if(n<=2) return [197,48,48]; if(n===3) return [183,121,31]; return [47,133,90]; }
+
+  // Combine CMS data + manual inputs into the values shown on the report.
+  function collect(){
+    const ccn=$("ccn").value.trim();
+    const officialName=val(cmsData,"provider_name","");
+    const override=$("nameOverride").value.trim();
+    const addr=[val(cmsData,"provider_address",""),val(cmsData,"citytown",""),
+                val(cmsData,"state",""),val(cmsData,"zip_code","")].filter(Boolean).join(", ");
+    return {
+      ccn, state:val(cmsData,"state",""),
+      facilityName: override||officialName||"—",
+      location: addr||"—",
+      emr: $("emr").value.trim()||"—",
+      censusCapacity: val(cmsData,"number_of_certified_beds","—"),
+      currentCensus: $("census").value.trim()||"—",
+      patientType: $("ptype").value.trim()||"—",
+      prevCoverage: $("prevCov").value||"—",
+      prevPerformance: $("prevPerf").value.trim()||"—",
+      medicalCoverage: $("medCov").value.trim()||"—",
+      overall: val(cmsData,"overall_rating","—"),
+      health: val(cmsData,"health_inspection_rating","—"),
+      staffing: val(cmsData,"staffing_rating","—"),
+      quality: val(cmsData,"qm_rating","—")
+    };
+  }
+
+  function coreRows(d){ return [
+    ["Name of Facility",d.facilityName,false],["Location",d.location,false],["EMR",d.emr,false],
+    ["Census Capacity (Certified Beds)",d.censusCapacity,false],["Current Census",d.currentCensus,false],
+    ["Type of Patient",d.patientType,false],["Previous Coverage from Medelite",d.prevCoverage,false],
+    ["Previous Provider Performance",d.prevPerformance,false],["Medical Coverage",d.medicalCoverage,false],
+    ["Overall Star Rating",d.overall,true],["Health Inspection",d.health,true],
+    ["Staffing",d.staffing,true],["Quality of Resident Care",d.quality,true],
+  ]; }
+
+  // Bonus analytics rows — only those that actually resolve are returned.
+  function analyticsRows(){
+    if(!cmsData) return [];
+    const specs=[
+      ["Ownership Type",["ownership_type"]],
+      ["Avg. Residents per Day",["average_number_of_residents_per_day"]],
+      ["Total Nursing Staff Turnover",["total_nursing_staff_turnover"]],
+      ["Total Nurse Staffing (hrs/resident/day)",["reported_total_nurse_staffing_hours_per_resident_per_day"]],
+      ["Number of Fines",["number_of_fines"]],
+      ["Total Fines ($)",["total_amount_of_fines_in_dollars"]],
+      ["Number of Payment Denials",["number_of_payment_denials"]],
+      ["Special Focus Status",["special_focus_status"]],
+      ["Cited for Abuse",["abuse_icon"]],
+      ["Resident & Family Council",["with_a_resident_and_family_council"]],
+      ["Changed Ownership (last 12 mo.)",["provider_changed_ownership_in_last_12_months"]],
+      ["First Certified",["date_first_approved_to_provide_medicare_and_medicaid_services"]],
+    ];
+    const out=[];
+    for(const [label,keys] of specs){
+      let v=pick(cmsData,keys,"");
+      if(v==="") continue;
+      if(label==="Total Fines ($)" && !isNaN(parseFloat(v))) v="$"+Number(v).toLocaleString();
+      out.push([label,v]);
+    }
+    return out;
+  }
+
+  function pips(rating){
+    const n=parseInt(rating,10); const rgb=ratingRGB(rating);
+    let html='<div class="pips">';
+    for(let i=1;i<=5;i++){
+      const on=!isNaN(n)&&i<=n;
+      html+='<span class="pip" style="'+(on?'background:rgb('+rgb.join(',')+')':'')+'"></span>';
+    }
+    return html+'</div>';
+  }
+
+  function renderRatings(d){
+    const band=$("ratingsBand");
+    const items=[["Overall",d.overall],["Health Inspection",d.health],["Staffing",d.staffing],["Quality of Care",d.quality]];
+    band.innerHTML="";
+    items.forEach(([lbl,r])=>{
+      const cls=ratingClass(r);
+      const div=document.createElement("div");
+      div.className="rcard";
+      div.innerHTML='<div class="rl">'+lbl+'</div>'+pips(r)+
+        '<div class="rnum" style="color:'+(cls?'var(--'+cls+')':'var(--muted)')+'">'+(r||"—")+(isNaN(parseInt(r,10))?'':' / 5')+'</div>';
+      band.appendChild(div);
+    });
+    $("ratingsCard").classList.toggle("hidden", !cmsData);
+  }
+
+  function renderPreview(){
+    const d=collect();
+    $("bannerState").textContent=d.state||"—";
+    const body=$("previewBody"); body.innerHTML="";
+    coreRows(d).forEach(([k,v,hl])=>{
+      const tr=document.createElement("tr"); if(hl) tr.className="hl";
+      tr.innerHTML='<td class="k"></td><td></td>';
+      tr.children[0].textContent=k; tr.children[1].textContent=v;
+      body.appendChild(tr);
+    });
+    if(d.ccn){ const u=careCompareURL(d.ccn);
+      $("sourceLink").innerHTML='Medicare source: <a href="'+u+'" target="_blank" rel="noopener">'+u+'</a>'; }
+    else $("sourceLink").innerHTML="";
+
+    renderRatings(d);
+
+    const arows=analyticsRows(), abody=$("analyticsBody"); abody.innerHTML="";
+    arows.forEach(([k,v])=>{ const tr=document.createElement("tr");
+      tr.innerHTML='<td class="k"></td><td></td>';
+      tr.children[0].textContent=k; tr.children[1].textContent=v; abody.appendChild(tr); });
+    $("analyticsCard").classList.toggle("hidden", arows.length===0);
+  }
+
+  async function queryCMS(ccn){
+    const qs="?conditions[0][property]=cms_certification_number_ccn&conditions[0][operator]==&conditions[0][value]="+encodeURIComponent(ccn);
+    const cmsUrl=API_BASE+qs;
+    const attempts=[ "/api/cms"+qs, cmsUrl,
+      "https://corsproxy.io/?url="+encodeURIComponent(cmsUrl),
+      "https://api.allorigins.win/raw?url="+encodeURIComponent(cmsUrl) ];
+    let lastErr;
+    for(const u of attempts){ try{ const r=await fetch(u); if(r.ok) return await r.json(); lastErr=new Error("HTTP "+r.status);}catch(e){lastErr=e;} }
+    throw lastErr||new Error("All lookup methods failed");
+  }
+
+  async function fetchData(){
+    const ccn=$("ccn").value.trim(), status=$("status"), btn=$("fetchBtn");
+    if(!ccn){ status.className="status err"; status.textContent="Please enter a CCN first."; return; }
+    btn.disabled=true; const old=btn.textContent; btn.textContent="Loading…";
+    status.className="status load"; status.textContent="Querying CMS Provider Data Catalog…";
+    try{
+      const json=await queryCMS(ccn); const results=json.results||[];
+      if(results.length===0){ cmsData=null; status.className="status err";
+        status.textContent="No CMS record found for CCN "+ccn+". You can still fill fields manually and export — the Medicare link will use this CCN."; }
+      else{ cmsData=results[0]; status.className="status ok";
+        status.textContent="✓ Loaded: "+val(cmsData,"provider_name","(unnamed facility)");
+        // Bonus: auto-fill Current Census from average daily residents, if user hasn't typed one.
+        const avg=val(cmsData,"average_number_of_residents_per_day","");
+        if(avg!=="" && $("census").value.trim()==="") $("census").value=Math.round(parseFloat(avg));
+      }
+    }catch(err){ cmsData=null; status.className="status err";
+      status.textContent="Could not reach the CMS API ("+err.message+"). On a hosted URL this works via the proxy — see README. Manual entry + export still work."; }
+    btn.disabled=false; btn.textContent=old;
+    renderPreview();
+  }
+
+  function drawRatingBand(doc,d,top){
+    const m=40, pageW=doc.internal.pageSize.getWidth(), usable=pageW-m*2, gap=12;
+    const cw=(usable-gap*3)/4;
+    const items=[["Overall",d.overall],["Health Insp.",d.health],["Staffing",d.staffing],["Quality",d.quality]];
+    items.forEach(([lbl,r],i)=>{
+      const x=m+i*(cw+gap), rgb=ratingRGB(r), n=parseInt(r,10);
+      doc.setDrawColor(217,220,227); doc.setFillColor(255,255,255);
+      doc.roundedRect(x,top,cw,52,4,4,"S");
+      doc.setFontSize(8); doc.setTextColor(107,114,128); doc.setFont("helvetica","normal");
+      doc.text(lbl.toUpperCase(),x+cw/2,top+13,{align:"center"});
+      const pw=10,pg=4,total=5*pw+4*pg,sx=x+(cw-total)/2,py=top+20;
+      for(let k=0;k<5;k++){ if(!isNaN(n)&&k<n){doc.setFillColor(rgb[0],rgb[1],rgb[2]);} else {doc.setFillColor(227,230,236);}
+        doc.roundedRect(sx+k*(pw+pg),py,pw,10,2,2,"F"); }
+      doc.setFontSize(13); doc.setTextColor(rgb[0],rgb[1],rgb[2]); doc.setFont("helvetica","bold");
+      doc.text((isNaN(n)?"—":n+" / 5"),x+cw/2,top+47,{align:"center"});
+    });
+    return top+52;
+  }
+
+  function downloadPDF(){
+    const d=collect(); const { jsPDF }=window.jspdf;
+    const doc=new jsPDF({unit:"pt",format:"letter"});
+    const cx=doc.internal.pageSize.getWidth()/2;
+    doc.setFont("helvetica","bold"); doc.setFontSize(24); doc.setTextColor(224,33,138);
+    doc.text("INFINITE",cx,52,{align:"center"});
+    doc.setFontSize(10); doc.setTextColor(107,63,160); doc.text("MANAGED BY MEDELITE",cx,68,{align:"center"});
+    doc.setFontSize(14); doc.setTextColor(31,36,48); doc.text("FACILITY ASSESSMENT SNAPSHOT",cx,92,{align:"center"});
+    doc.setFontSize(12); doc.setTextColor(43,108,176); doc.text(d.state||"—",cx,110,{align:"center"});
+
+    const bandEnd=drawRatingBand(doc,d,124);
+
+    doc.autoTable({
+      startY:bandEnd+16, head:[["Report Field","Value"]], body:coreRows(d).map(r=>[r[0],r[1]]), theme:"grid",
+      styles:{fontSize:10,cellPadding:6,textColor:[31,36,48],lineColor:[217,220,227]},
+      headStyles:{fillColor:[43,108,176],textColor:255},
+      columnStyles:{0:{fontStyle:"bold",cellWidth:240}},
+      didParseCell:function(data){ if(data.section==="body"&&data.row.index>=9) data.cell.styles.fillColor=[255,248,176]; }
+    });
+
+    const arows=analyticsRows();
+    if(arows.length){
+      doc.autoTable({
+        startY:doc.lastAutoTable.finalY+18, head:[["Compliance & Analytics (CMS)","Value"]], body:arows, theme:"grid",
+        styles:{fontSize:9,cellPadding:5,textColor:[31,36,48],lineColor:[217,220,227]},
+        headStyles:{fillColor:[107,63,160],textColor:255}, columnStyles:{0:{fontStyle:"bold",cellWidth:240}}
+      });
+    }
+
+    let y=doc.lastAutoTable.finalY+26;
+    doc.setFontSize(10); doc.setTextColor(31,36,48); doc.setFont("helvetica","normal");
+    doc.text("Public data source — Medicare Care Compare:",40,y); y+=16;
+    const url=careCompareURL(d.ccn||""); doc.setTextColor(43,108,176); doc.textWithLink(url,40,y,{url});
+
+    const safe=(d.facilityName||"facility").replace(/[^a-z0-9]+/gi,"_").slice(0,40);
+    doc.save("Facility_Assessment_"+safe+".pdf");
+  }
+
+  // Bonus: Word (.doc) export via an HTML blob Word can open.
+  function downloadWord(){
+    const d=collect();
+    const stars=(r)=>{ const n=parseInt(r,10); if(isNaN(n)) return "—";
+      return "★".repeat(n)+"☆".repeat(5-n)+" ("+n+"/5)"; };
+    const rowsHTML=coreRows(d).map(([k,v,hl])=>{
+      let disp=v;
+      if(k==="Overall Star Rating")disp=stars(d.overall); if(k==="Health Inspection")disp=stars(d.health);
+      if(k==="Staffing")disp=stars(d.staffing); if(k==="Quality of Resident Care")disp=stars(d.quality);
+      return '<tr'+(hl?' style="background:#fff8b0"':'')+'><td style="font-weight:bold;border:1px solid #999;padding:6px">'+k+'</td><td style="border:1px solid #999;padding:6px">'+disp+'</td></tr>';
+    }).join("");
+    const arows=analyticsRows().map(([k,v])=>'<tr><td style="font-weight:bold;border:1px solid #999;padding:6px">'+k+'</td><td style="border:1px solid #999;padding:6px">'+v+'</td></tr>').join("");
+    const url=careCompareURL(d.ccn||"");
+    const html=
+      '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"></head><body style="font-family:Calibri,Arial,sans-serif">'+
+      '<div style="text-align:center"><div style="font-size:26px;font-weight:bold;color:#e0218a">INFINITE</div>'+
+      '<div style="font-size:11px;letter-spacing:2px;color:#6b3fa0">MANAGED BY MEDELITE</div>'+
+      '<div style="font-size:16px;font-weight:bold;margin-top:8px">FACILITY ASSESSMENT SNAPSHOT</div>'+
+      '<div style="font-size:14px;font-weight:bold;color:#2b6cb0">'+(d.state||"—")+'</div></div><br>'+
+      '<table style="border-collapse:collapse;width:100%">'+rowsHTML+'</table>'+
+      (arows?('<br><h3>Compliance &amp; Analytics (CMS)</h3><table style="border-collapse:collapse;width:100%">'+arows+'</table>'):'')+
+      '<br><p>Public data source — Medicare Care Compare: <a href="'+url+'">'+url+'</a></p></body></html>';
+    const blob=new Blob(['\ufeff',html],{type:"application/msword"});
+    const a=document.createElement("a"); const safe=(d.facilityName||"facility").replace(/[^a-z0-9]+/gi,"_").slice(0,40);
+    a.href=URL.createObjectURL(blob); a.download="Facility_Assessment_"+safe+".doc"; a.click(); URL.revokeObjectURL(a.href);
+  }
+
+  $("fetchBtn").addEventListener("click",fetchData);
+  $("pdfBtn").addEventListener("click",downloadPDF);
+  $("wordBtn").addEventListener("click",downloadWord);
+  $("ccn").addEventListener("keydown",(e)=>{ if(e.key==="Enter") fetchData(); });
+  ["nameOverride","emr","census","ptype","prevCov","prevPerf","medCov"].forEach(id=>$(id).addEventListener("input",renderPreview));
+  renderPreview();
+</script>
+</body>
+</html>
